@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>实时协作文档平台 - 预览</title>
+  <!-- 引入Vue.js -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- 引入Quill编辑器 -->
+  <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+  <!-- 引入Font Awesome图标 -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <style>
+    /* 全局样式 */
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      line-height: 1.5;
+      color: #1e293b;
+      background-color: #ffffff;
+    }
+    
+    #app {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* 提示信息 */
+    .preview-notice {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      background-color: #fef3c7;
+      border: 1px solid #fbbf24;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      max-width: 300px;
+      z-index: 1000;
+      font-size: 0.875rem;
+      color: #92400e;
+    }
+    
+    .preview-notice i {
+      margin-right: 0.5rem;
+    }
+    
+    /* 认证相关样式 */
+    .auth-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #f8fafc;
+      padding: 1rem;
+    }
+    
+    .auth-card {
+      background-color: white;
+      border-radius: 0.75rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      padding: 2rem;
+      width: 100%;
+      max-width: 400px;
+    }
+    
+    .auth-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #1e293b;
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    
+    .form-label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #475569;
+    }
+    
+    .form-input {
+      padding: 0.75rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.375rem;
+      font-size: 1rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .error-message {
+      color: #ef4444;
+      font-size: 0.875rem;
+      margin-top: 0.5rem;
+    }
+    
+    .auth-button {
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      padding: 0.75rem;
+      border-radius: 0.375rem;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .auth-button:hover {
+      background-color: #2563eb;
+    }
+    
+    .form-actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    
+    .cancel-button {
+      flex: 1;
+      background-color: #f1f5f9;
+      color: #475569;
+      border: 1px solid #e2e8f0;
+      padding: 0.75rem;
+      border-radius: 0.375rem;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .cancel-button:hover {
+      background-color: #e2e8f0;
+    }
+    
+    .link-button {
+      background: none;
+      border: none;
+      color: #3b82f6;
+      cursor: pointer;
+      font-size: inherit;
+      padding: 0;
+      text-decoration: underline;
+    }
+    
+    .link-button:hover {
+      color: #2563eb;
+    }
+    
+    /* 应用头部样式 */
+    .app-header {
+      background-color: #1e40af;
+      color: white;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .header-left h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+    
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    
+    .user-info {
+      font-size: 0.875rem;
+    }
+    
+    .logout-btn {
+      background-color: #ef4444;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: background-color 0.2s;
+    }
+    
+    .logout-btn:hover {
+      background-color: #dc2626;
+    }
+    
+    /* 应用容器样式 */
+    .app-container {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+    
+    /* 侧边栏样式 */
+    .sidebar {
+      width: 240px;
+      background-color: #f8fafc;
+      border-right: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .sidebar-header {
+      padding: 1rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .create-btn {
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: background-color 0.2s;
+    }
+    
+    .create-btn:hover {
+      background-color: #2563eb;
+    }
+    
+    .document-list {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    
+    .list-title {
+      padding: 1rem;
+      margin: 0;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .documents {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      flex: 1;
+      overflow-y: auto;
+    }
+    
+    .document-item {
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      border-bottom: 1px solid #e2e8f0;
+      transition: background-color 0.2s;
+    }
+    
+    .document-item:hover {
+      background-color: #f1f5f9;
+    }
+    
+    .document-item.active {
+      background-color: #dbeafe;
+      border-left: 3px solid #3b82f6;
+    }
+    
+    .document-title {
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+      color: #1e293b;
+    }
+    
+    .document-preview {
+      font-size: 0.75rem;
+      color: #64748b;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    /* 编辑器容器样式 */
+    .editor-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background-color: white;
+    }
+    
+    .empty-state {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #64748b;
+      font-size: 1rem;
+    }
+    
+    /* 编辑器样式 */
+    .editor {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    
+    .editor-header {
+      padding: 1rem 2rem;
+      border-bottom: 1px solid #e2e8f0;
+      background-color: #f8fafc;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .document-title-input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #1e293b;
+      outline: none;
+      margin-right: 1rem;
+    }
+    
+    /* 协作用户列表样式 */
+    .collaborators {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    
+    .collaborator-item {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      background-color: #f1f5f9;
+      padding: 0.25rem 0.5rem;
+      border-radius: 1rem;
+      font-size: 0.875rem;
+      transition: all 0.2s ease;
+    }
+    
+    .collaborator-item:hover {
+      background-color: #e2e8f0;
+    }
+    
+    .collaborator-item.self {
+      background-color: #dbeafe;
+    }
+    
+    .collaborator-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background-color: #3b82f6;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    
+    .collaborator-name {
+      color: #475569;
+      font-size: 0.75rem;
+    }
+    
+    .editor-content {
+      flex: 1;
+      overflow: hidden;
+      padding: 1rem 2rem;
+    }
+    
+    .quill-editor {
+      height: 100%;
+    }
+    
+    /* 适配Quill编辑器的样式 */
+    .ql-container {
+      height: calc(100% - 42px) !important;
+    }
+    
+    .ql-editor {
+      font-size: 1rem;
+      line-height: 1.6;
+      min-height: 100%;
+    }
+    
+    .ql-editor.ql-blank::before {
+      color: #94a3b8;
+    }
+    
+    /* 滚动条样式 */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- 预览模式提示 -->
+    <div class="preview-notice">
+      <i class="fa fa-info-circle"></i>
+      这是预览模式，完整功能请在安装依赖后运行
+    </div>
+    
+    <!-- Vue应用内容将通过JavaScript动态生成 -->
+  </div>
+  
+  <script>
+    const { createApp, ref, onMounted } = Vue
+    
+    createApp({
+      setup() {
+        // 用户认证相关状态
+        const currentUser = ref(null)
+        const showLogin = ref(true)
+        const showRegister = ref(false)
+        
+        // 登录表单数据
+        const loginUsername = ref('')
+        const loginPassword = ref('')
+        const loginError = ref('')
+        
+        // 注册表单数据
+        const registerUsername = ref('')
+        const registerPassword = ref('')
+        const registerConfirmPassword = ref('')
+        const registerEmail = ref('')
+        const registerError = ref('')
+        
+        // 文档数据
+        const documents = ref([
+          { 
+            id: 1, 
+            title: '协作文档示例', 
+            content: '<p>欢迎使用实时协作文档平台！</p><p>在这里，你可以与团队成员实时编辑同一个文档。</p>' 
+          },
+          { 
+            id: 2, 
+            title: '项目计划', 
+            content: '<h2>项目计划</h2><ul><li>需求分析</li><li>设计阶段</li><li>开发实现</li><li>测试部署</li></ul>' 
+          }
+        ])
+        
+        // 初始时选择第一个文档
+        const activeDocument = ref(documents.value.length > 0 ? documents.value[0] : null)
+        
+        // 模拟用户数据库
+        const users = ref(JSON.parse(localStorage.getItem('preview_users')) || [
+          { 
+            id: 1, 
+            username: 'admin', 
+            password: 'admin123', 
+            email: 'admin@example.com',
+            documents: [
+              { id: 1, title: '协作文档示例', content: '<p>欢迎使用实时协作文档平台！</p><p>在这里，你可以与团队成员实时编辑同一个文档。</p>' },
+              { id: 2, title: '项目计划', content: '<h2>项目计划</h2><ul><li>需求分析</li><li>设计阶段</li><li>开发实现</li><li>测试部署</li></ul>' }
+            ]
+          }
+        ])
+        
+        // 协作用户
+        const collaborativeUsers = ref([
+          { id: 2, username: '用户2', color: '#ef4444' }
+        ])
+        
+        // 登录函数
+        function handleLogin() {
+          loginError.value = ''
+          
+          // 简单的表单验证
+          if (!loginUsername.value.trim() || !loginPassword.value.trim()) {
+            loginError.value = '请输入用户名和密码'
+            return
+          }
+          
+          // 查找用户
+          const user = users.value.find(u => 
+            u.username === loginUsername.value && u.password === loginPassword.value
+          )
+          
+          if (!user) {
+            loginError.value = '用户名或密码错误'
+            return
+          }
+          
+          // 登录成功
+          currentUser.value = {
+            id: user.id,
+            username: user.username,
+            email: user.email
+          }
+          showLogin.value = false
+          
+          // 加载当前用户的文档
+          loadUserDocuments()
+          
+          // 重置表单
+          loginUsername.value = ''
+          loginPassword.value = ''
+        }
+        
+        // 注册函数
+        function handleRegister() {
+          registerError.value = ''
+          
+          // 简单的表单验证
+          if (!registerUsername.value.trim()) {
+            registerError.value = '请输入用户名'
+            return
+          }
+          
+          if (!registerPassword.value.trim()) {
+            registerError.value = '请输入密码'
+            return
+          }
+          
+          if (registerPassword.value !== registerConfirmPassword.value) {
+            registerError.value = '两次输入的密码不一致'
+            return
+          }
+          
+          if (!registerEmail.value.trim()) {
+            registerError.value = '请输入邮箱'
+            return
+          }
+          
+          // 简单的邮箱格式验证
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+          if (!emailRegex.test(registerEmail.value)) {
+            registerError.value = '请输入有效的邮箱地址'
+            return
+          }
+          
+          // 检查用户名是否已存在
+          const existingUser = users.value.find(u => u.username === registerUsername.value)
+          if (existingUser) {
+            registerError.value = '用户名已存在'
+            return
+          }
+          
+          // 创建新用户，包含空的文档数组
+          const newUser = {
+            id: Date.now(),
+            username: registerUsername.value,
+            password: registerPassword.value,
+            email: registerEmail.value,
+            documents: []
+          }
+          
+          // 添加到用户列表
+          users.value.push(newUser)
+          // 保存用户数据到本地存储
+          saveUsers()
+          
+          // 注册成功后返回登录界面
+          toggleRegister()
+          
+          // 重置表单
+          registerUsername.value = ''
+          registerPassword.value = ''
+          registerConfirmPassword.value = ''
+          registerEmail.value = ''
+        }
+        
+        // 切换到注册界面
+        function toggleRegister() {
+          showRegister.value = !showRegister.value
+        }
+        
+        // 取消注册
+        function cancelRegister() {
+          showRegister.value = false
+        }
+        
+        // 登出函数
+        function handleLogout() {
+          currentUser.value = null
+          showLogin.value = true
+          documents.value = []
+          activeDocument.value = null
+        }
+        
+        // 保存用户数据到本地存储
+        function saveUsers() {
+          localStorage.setItem('preview_users', JSON.stringify(users.value))
+        }
+        
+        // 加载用户的文档
+        function loadUserDocuments() {
+          if (currentUser.value) {
+            const user = users.value.find(u => u.id === currentUser.value.id)
+            if (user && user.documents) {
+              documents.value = user.documents
+              // 初始化时自动选择第一个文档
+              if (documents.value.length > 0) {
+                activeDocument.value = documents.value[0]
+              } else {
+                activeDocument.value = null
+              }
+            }
+          }
+        }
+        
+        // 创建新文档
+        function createDocument() {
+          if (currentUser.value) {
+            const newDoc = {
+              id: Date.now(),
+              title: '未命名文档',
+              content: '<p></p>'
+            }
+            
+            const userIndex = users.value.findIndex(u => u.id === currentUser.value.id)
+            if (userIndex !== -1) {
+              if (!users.value[userIndex].documents) {
+                users.value[userIndex].documents = []
+              }
+              users.value[userIndex].documents.push(newDoc)
+              // 保存用户数据到本地存储
+              saveUsers()
+              // 重新加载用户文档
+              loadUserDocuments()
+            }
+          }
+        }
+        
+        // 选择文档
+        function selectDocument(doc) {
+          activeDocument.value = doc
+        }
+        
+        // 更新文档内容
+        function updateDocumentContent(docId, newContent) {
+          if (currentUser.value) {
+            const userIndex = users.value.findIndex(u => u.id === currentUser.value.id)
+            if (userIndex !== -1 && users.value[userIndex].documents) {
+              const docIndex = users.value[userIndex].documents.findIndex(d => d.id === docId)
+              if (docIndex !== -1) {
+                users.value[userIndex].documents[docIndex].content = newContent
+                // 保存用户数据到本地存储
+                saveUsers()
+                // 重新加载用户文档
+                loadUserDocuments()
+              }
+            }
+          }
+        }
+        
+        // 重命名文档
+        function renameDocument(docId, newTitle) {
+          if (currentUser.value) {
+            const userIndex = users.value.findIndex(u => u.id === currentUser.value.id)
+            if (userIndex !== -1 && users.value[userIndex].documents) {
+              const docIndex = users.value[userIndex].documents.findIndex(d => d.id === docId)
+              if (docIndex !== -1) {
+                users.value[userIndex].documents[docIndex].title = newTitle
+                // 保存用户数据到本地存储
+                saveUsers()
+                // 重新加载用户文档
+                loadUserDocuments()
+                console.log(`文档 ${docId} 已重命名为: ${newTitle}`)
+              }
+            }
+          }
+        }
+        
+        // 删除文档
+        function deleteDocument(docId) {
+          if (currentUser.value) {
+            const userIndex = users.value.findIndex(u => u.id === currentUser.value.id)
+            if (userIndex !== -1 && users.value[userIndex].documents) {
+              const initialLength = users.value[userIndex].documents.length
+              users.value[userIndex].documents = users.value[userIndex].documents.filter(d => d.id !== docId)
+              
+              if (users.value[userIndex].documents.length !== initialLength) {
+                // 保存用户数据到本地存储
+                saveUsers()
+                // 重新加载用户文档
+                loadUserDocuments()
+                console.log(`文档 ${docId} 已删除`)
+              }
+            }
+          }
+        }
+        
+        // 获取文档预览
+        function getPreview(content) {
+          // 移除HTML标签并获取前30个字符作为预览
+          const plainText = content.replace(/<[^>]*>/g, '').trim()
+          return plainText.length > 30 ? plainText.substring(0, 30) + '...' : plainText
+        }
+        
+        return {
+            // 用户认证相关
+            currentUser,
+            showLogin,
+            showRegister,
+            loginUsername,
+            loginPassword,
+            loginError,
+            registerUsername,
+            registerPassword,
+            registerConfirmPassword,
+            registerEmail,
+            registerError,
+            handleLogin,
+            handleRegister,
+            toggleRegister,
+            cancelRegister,
+            handleLogout,
+            
+            // 文档相关
+            documents,
+            activeDocument,
+            collaborativeUsers,
+            createDocument,
+            selectDocument,
+            updateDocumentContent,
+            renameDocument,
+            deleteDocument,
+            getPreview
+          }
+      },
+      template: `
+        <div class="app">
+          <!-- 用户登录界面 -->
+          <div v-if="showLogin && !showRegister" class="auth-container">
+            <div class="auth-card">
+              <h2 class="auth-title">用户登录</h2>
+              
+              <form @submit.prevent="handleLogin" class="auth-form">
+                <div class="form-group">
+                  <label for="username" class="form-label">用户名</label>
+                  <input
+                    id="username"
+                    v-model="loginUsername"
+                    type="text"
+                    class="form-input"
+                    placeholder="请输入用户名"
+                  />
+                </div>
+                
+                <div class="form-group">
+                  <label for="password" class="form-label">密码</label>
+                  <input
+                    id="password"
+                    v-model="loginPassword"
+                    type="password"
+                    class="form-input"
+                    placeholder="请输入密码"
+                  />
+                </div>
+                
+                <!-- 错误信息 -->
+                <div v-if="loginError" class="error-message">
+                  {{ loginError }}
+                </div>
+                
+                <button type="submit" class="auth-button">登录</button>
+              </form>
+              
+              <div style="margin-top: 1.5rem; text-align: center; font-size: 0.875rem; color: #64748b;">
+                <p>还没有账号？
+                  <button type="button" class="link-button" @click="toggleRegister">
+                    立即注册
+                  </button>
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 用户注册界面 -->
+          <div v-if="showRegister" class="auth-container">
+            <div class="auth-card">
+              <h2 class="auth-title">用户注册</h2>
+              
+              <form @submit.prevent="handleRegister" class="auth-form">
+                <div class="form-group">
+                  <label for="register-username" class="form-label">用户名</label>
+                  <input
+                    id="register-username"
+                    v-model="registerUsername"
+                    type="text"
+                    class="form-input"
+                    placeholder="请输入用户名"
+                  />
+                </div>
+                
+                <div class="form-group">
+                  <label for="register-email" class="form-label">邮箱</label>
+                  <input
+                    id="register-email"
+                    v-model="registerEmail"
+                    type="email"
+                    class="form-input"
+                    placeholder="请输入邮箱"
+                  />
+                </div>
+                
+                <div class="form-group">
+                  <label for="register-password" class="form-label">密码</label>
+                  <input
+                    id="register-password"
+                    v-model="registerPassword"
+                    type="password"
+                    class="form-input"
+                    placeholder="请输入密码"
+                  />
+                </div>
+                
+                <div class="form-group">
+                  <label for="register-confirm-password" class="form-label">确认密码</label>
+                  <input
+                    id="register-confirm-password"
+                    v-model="registerConfirmPassword"
+                    type="password"
+                    class="form-input"
+                    placeholder="请再次输入密码"
+                  />
+                </div>
+                
+                <!-- 错误信息 -->
+                <div v-if="registerError" class="error-message">
+                  {{ registerError }}
+                </div>
+                
+                <div class="form-actions">
+                  <button type="button" class="cancel-button" @click="cancelRegister">
+                    取消
+                  </button>
+                  <button type="submit" class="auth-button">
+                    注册
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+          
+          <!-- 文档管理界面 -->
+          <div v-else class="main-container">
+            <!-- 应用头部 -->
+            <header class="app-header">
+              <div class="header-left">
+                <h1>实时协作文档平台</h1>
+              </div>
+              <div class="header-right">
+                <span class="user-info">欢迎，{{ currentUser?.username }}</span>
+                <button @click="handleLogout" class="logout-btn">退出登录</button>
+              </div>
+            </header>
+            
+            <!-- 主内容区域 -->
+            <div class="app-container">
+              <aside class="sidebar">
+                <div class="sidebar-header">
+                  <button @click="createDocument" class="create-btn">
+                    <i class="fa fa-plus"></i> 新建文档
+                  </button>
+                </div>
+                <div class="document-list">
+                  <h3 class="list-title">我的文档</h3>
+                  <ul class="documents">
+                    <li 
+                      v-for="doc in documents" 
+                      :key="doc.id"
+                      :class="{ 'active': activeDocument && doc.id === activeDocument.id }"
+                      @click="selectDocument(doc)"
+                      class="document-item"
+                    >
+                      <div class="document-title">{{ doc.title }}</div>
+                      <div class="document-preview">{{ getPreview(doc.content) }}</div>
+                    </li>
+                  </ul>
+                </div>
+              </aside>
+              
+              <main class="editor-container">
+                <div v-if="activeDocument" class="editor">
+                  <div class="editor-header">
+                    <input 
+                      type="text" 
+                      v-model="activeDocument.title" 
+                      class="document-title-input"
+                      placeholder="文档标题"
+                    />
+                    
+                    <!-- 协作用户列表 -->
+                    <div class="collaborators">
+                      <div class="collaborator-item self">
+                        <span class="collaborator-avatar">我</span>
+                        <span class="collaborator-name">我</span>
+                      </div>
+                      <div 
+                        v-for="user in collaborativeUsers" 
+                        :key="user.id" 
+                        class="collaborator-item"
+                      >
+                        <span 
+                          class="collaborator-avatar" 
+                          :style="{ backgroundColor: user.color }"
+                        >
+                          {{ user.username.charAt(0) }}
+                        </span>
+                        <span class="collaborator-name">{{ user.username }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="editor-content">
+                    <!-- 模拟的Quill编辑器 -->
+                    <div class="quill-editor">
+                      <div class="ql-toolbar ql-snow">
+                        <button class="ql-bold"></button>
+                        <button class="ql-italic"></button>
+                        <button class="ql-underline"></button>
+                        <button class="ql-strike"></button>
+                        <select class="ql-header">
+                          <option value="1"></option>
+                          <option value="2"></option>
+                          <option selected></option>
+                        </select>
+                        <button class="ql-list" value="ordered"></button>
+                        <button class="ql-list" value="bullet"></button>
+                      </div>
+                      <div class="ql-container ql-snow">
+                        <div class="ql-editor" v-html="activeDocument.content"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="empty-state">
+                  <p>请选择或创建一个文档开始编辑</p>
+                </div>
+              </main>
+            </div>
+          </div>
+        </div>
+      `
+    }).mount('#app')
+  </script>
+</body>
+</html>
